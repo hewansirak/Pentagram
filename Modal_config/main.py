@@ -25,6 +25,7 @@ app = modal.App("stability_diffusion", image=image)
 @app.cls(
     image=image,
     gpu="A10G",
+    secrets=[modal.Secret.from_name("API_KEY")]
 )
 
 class Model:
@@ -47,6 +48,13 @@ class Model:
     @modal.web_endpoint()
     def generate(self, request: Request, prompt: str = Query(..., description="The prompt for image generation")):
 
+        api_key = request.headers.get("X-API-Key")
+        if api_key != self.API_KEY:
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized"                 
+            )
+
         image = self.pipe(prompt , num_inference_steps=1, guidance_scale=0.0).images[0]
 
         buffer = io.BytesIO()
@@ -55,5 +63,3 @@ class Model:
         return Response(content=buffer.getvalue(), media_type="image/jpeg")
 
 
-
-    
