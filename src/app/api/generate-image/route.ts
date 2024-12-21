@@ -8,6 +8,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { text } = body;
 
+    const apiSecret = request.headers.get("X-API-SECRET");
+
+    if (apiSecret !== process.env.API_SECRET) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     // TODO: Call your Image Generation API here
     // For now, we'll just echo back the text
 
