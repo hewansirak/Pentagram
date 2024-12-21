@@ -25,6 +25,7 @@ app = modal.App("stability_diffusion", image=image)
 @app.cls(
     image=image,
     gpu="A10G",
+    container_idle_timeout=300,
     secrets=[modal.Secret.from_name("API_KEY")]
 )
 
@@ -62,4 +63,26 @@ class Model:
 
         return Response(content=buffer.getvalue(), media_type="image/jpeg")
 
+@modal.web_endpoint()
+def health():
+    "Lightweight endpoint for keeping the container warm"
+    return {"status": "healthy","timestamp": datetime.now(timezone.utc).isoformat()}
 
+@app.function(
+    schedule=modal.Cron("*/5 * * * *"),
+    secrets=[modal.Secret.from_name("API_KEY")]
+)
+
+# Warm keeping function that runs every 5 minutes
+def keep_warm():
+    health_url = "https://hewansg--stability-diffusion-model-health.modal.run"
+    generate_url = "https://hewansg--stability-diffusion-model-generate.modal.run"
+
+    # First check health endpoint(no API key needed)
+    health_response = requests.get(health_url)
+    print(f"Health check at: {health_response.json()['timestamp']}")
+
+    # Then make a test request to generate endpoint with API KEY
+    headers = {"X-API_KEY": os.environ["API_KEY"]}
+    generate_response = requests.get(generate_url, headers=headers)
+    print(f"Generate endpoint tested successfully at: {datetime.now(timezone.utc).isoformat()}")
