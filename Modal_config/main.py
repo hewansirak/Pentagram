@@ -63,10 +63,10 @@ class Model:
 
         return Response(content=buffer.getvalue(), media_type="image/jpeg")
 
-@modal.web_endpoint()
-def health():
-    "Lightweight endpoint for keeping the container warm"
-    return {"status": "healthy","timestamp": datetime.now(timezone.utc).isoformat()}
+    @modal.web_endpoint()
+    def health(self):
+        """Lightweight endpoint for keeping the container warm"""
+        return {"status": "healthy","timestamp": datetime.now(timezone.utc).isoformat()}
 
 @app.function(
     schedule=modal.Cron("*/5 * * * *"),
@@ -83,6 +83,6 @@ def keep_warm():
     print(f"Health check at: {health_response.json()['timestamp']}")
 
     # Then make a test request to generate endpoint with API KEY
-    headers = {"X-API_KEY": os.environ["API_KEY"]}
+    headers = {"X-API-Key": os.environ["API_KEY"]}
     generate_response = requests.get(generate_url, headers=headers)
     print(f"Generate endpoint tested successfully at: {datetime.now(timezone.utc).isoformat()}")
