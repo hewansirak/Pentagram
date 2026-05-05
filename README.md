@@ -1,69 +1,94 @@
-# Pentagram: Instagram, but with AI Images
+# Pentagram
 
-## Getting Started
+**Instagram, but every picture is generated from a text prompt. Stable Diffusion (SDXL-Turbo) on Modal serverless GPUs, a Next.js app on Vercel, and a persistent gallery.**
 
-First, clone the GitHub repository:
+<!-- TODO(Hewan): record a short GIF (type a prompt -> image appears -> gallery),
+     save it as docs/demo.gif and uncomment the next line.
+![Demo](docs/demo.gif) -->
 
-```bash
-git clone https://github.com/team-headstart/pentagram.git
+[![CI](https://github.com/hewansirak/Pentagram/actions/workflows/ci.yml/badge.svg)](https://github.com/hewansirak/Pentagram/actions)
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+**Live demo:** _add your Vercel URL here after deploying (see [Deploy](#deploy))_
+
+## Two modes
+
+| | Demo mode (default) | Live mode |
+|---|---|---|
+| Needs | nothing | Modal endpoint + Vercel Blob |
+| Generating | matches your prompt to one of 6 bundled sample artworks | real SDXL-Turbo image from a GPU |
+| Gallery | the 6 samples | every image generated, newest first |
+
+The app switches to live mode automatically when `MODAL_URL`, `API_KEY` and `BLOB_READ_WRITE_TOKEN` are all set. In demo mode a banner says so; sample artwork is never presented as AI output.
+
+## Features
+
+- Prompt → image with one click, plus example prompt chips.
+- Gallery of all generated images (stored in Vercel Blob, no database needed).
+- Prompt validation (length limit, small blocklist for obviously unsafe terms – a basic guard, not a full safety system).
+- Per-IP rate limit (5/min, in-memory per server instance) to protect GPU spend.
+- Image API protected by a secret key, compared in constant time.
+- Server-side only secrets: the browser never sees the Modal URL or key.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    B[Browser] -->|Server Action| A[Next.js on Vercel<br/>validate + rate limit]
+    A -->|live mode: GET ?prompt + X-API-Key| M[Modal GPU endpoint<br/>SDXL-Turbo, 1 step, A10G]
+    M -->|JPEG| A
+    A -->|store image + metadata JSON| V[(Vercel Blob)]
+    A -->|demo mode| S[Bundled sample artwork]
+    V --> G[Gallery page]
+    S --> G
 ```
 
-Then, navigate to the project directory:
+## Tech stack
+
+Next.js 15 (App Router, Server Actions), React 19, TypeScript, Tailwind CSS, Vercel Blob, Modal, Stability AI SDXL-Turbo via Hugging Face Diffusers, Vitest, GitHub Actions.
+
+## Quick start (demo mode)
 
 ```bash
-cd pentagram
-```
-
-Then, install the dependencies:
-
-```bash
+git clone https://github.com/hewansirak/Pentagram && cd Pentagram
 npm install
+npm run dev          # http://localhost:3000
+npm test
 ```
 
-Run the development server:
+## Run it live
 
-```bash
-npm run dev
-```
+1. **GPU backend**
+   ```bash
+   pip install modal && modal setup
+   modal secret create API_KEY API_KEY=<long-random-string>
+   modal deploy Modal_config/main.py
+   ```
+   Copy the `generate` URL that Modal prints.
+2. **Environment** – copy `.env.example` to `.env.local` and fill in `MODAL_URL`, `API_KEY` (same value as the Modal secret) and `BLOB_READ_WRITE_TOKEN` (Vercel → Storage → Blob).
+3. `npm run dev`. The demo banner disappears when live mode is active.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Cost note:** `KEEP_WARM=1 modal deploy ...` pings the model every 5 minutes so there are no cold starts, but that keeps an A10G GPU running around the clock. It is off by default.
 
-## Tasks
+## Deploy
 
-- Take a look at the TODOs in the repo, namely:
+1. Import the repo in [Vercel](https://vercel.com/new) and add a Blob store (Storage tab).
+2. Add `MODAL_URL` and `API_KEY` under *Environment Variables* (Blob adds its own token). Skip them to deploy the demo mode.
+3. Put the resulting URL at the top of this README.
 
-    - `src/app/page.tsx`: This is where the user can input their prompt and generate an image. Make sure to update the UI and handle the API response to display the images generated
+## Roadmap
 
-    - `src/app/api/generate-image/route.ts`: This is where the image generation API is implemented. Make sure to call your image generation API from Modal here
+- [ ] Authentication and per-user profiles
+- [ ] Likes, comments and sharing
+- [ ] Semantic search over prompts (embeddings)
+- [ ] Personalised feed (recommendations)
+- [ ] Persistent rate limiting (Upstash Redis) and a real moderation model
 
+## Credits
 
-## Learn More
+Started from the [Pentagram starter](https://github.com/team-headstart/pentagram) by Headstarter (team-headstart). The Modal backend, image storage, gallery, demo mode, validation and tests were built by Hewan Sirak.
 
-To learn more about Next.js, take a look at the following resources:
+## License
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-**Requirements:**
-
-- Host an image generation model (e.g., Stable Diffusion) on serverless GPUs through Modal, ensuring low-latency performance for smooth user experience.
-- Create a web app that allows users to generate images from text prompts, manage their creations, and interact socially through likes, comments, and sharing features.
-- Incorporate intuitive UI/UX design, authentication, and efficient image management with prompt histories.
-
-**Challenges:**
-
-- Ensuring the hosted image generation model operates within low-latency thresholds (<2 seconds) while handling multiple concurrent requests
-- Managing the dynamic scaling of GPU resources to handle demand spikes without exceeding cost or causing performance bottlenecks.
-- Add the ability to search for images semantically
-- Prevent harmful or inappropriate content from being generated
-- Build a recommendation system that creates personalized feeds for users, balancing new content discovery with user preferences
-
-### References
-
-- [Getting Started with Modal](https://modal.com/docs/examples/hello_world)
-- [Modal Text-to-Image](https://modal.com/docs/examples/text_to_image)
-- [Modal Webendpoints](https://modal.com/docs/guide/webhooks)
-- [Modal Coldstart](https://modal.com/docs/guide/cold-start)
-- [MidJourney Example](https://www.midjourney.com/explore?tab=top) 
-- [NVIDIA GPU Comparison ](https://www.digitalocean.com/community/tutorials/h100_vs_other_gpus_choosing_the_right_gpu_for_your_machine_learning_workload)
-- [Image Generation Models ](https://huggingface.co/models?pipeline_tag=text-to-image)
+MIT
